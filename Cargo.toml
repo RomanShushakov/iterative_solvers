@@ -1,5 +1,5 @@
 [package]
-name = "iterative_solvers"
+name = "iterative_solvers_simple"
 version = "0.1.0"
 authors = ["Roman Shushakov <roman.a.shushakov1@gmail.com>"]
 edition = "2024"
