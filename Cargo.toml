@@ -1,0 +1,11 @@
+[package]
+name = "iterative_solvers"
+version = "0.1.0"
+authors = ["Roman Shushakov <roman.a.shushakov1@gmail.com>"]
+edition = "2024"
+description = "An iterative solvers for calculation of matrix equations module."
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/RomanShushakov/iterative_solvers"
+
+[dependencies]
