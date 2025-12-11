@@ -5,4 +5,4 @@ pub mod ic;
 mod tests;
 
 pub use jacobi::JacobiPreconditioner;
-pub use pcg::pcg_jacobi_csr;
+pub use pcg::{pcg_jacobi_csr, pcg_ichol0_csr};
