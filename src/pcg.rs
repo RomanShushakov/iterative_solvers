@@ -1,6 +1,6 @@
 use extended_matrix::{CsrMatrix, FloatTrait};
 
-use crate::ic::Ichol0Preconditioner;
+use crate::block_jacobi::BlockJacobiPreconditioner;
 use crate::jacobi::JacobiPreconditioner;
 use crate::linalg::{axpy, dot, scale};
 
@@ -114,31 +114,28 @@ where
     Err(format!("PCG: did not converge in {} iterations", max_iter))
 }
 
-/// PCG with IC(0) (Incomplete Cholesky) preconditioner on a CSR matrix.
-/// Solves A x = b for SPD A.
-/// - `a`: CSR matrix
-/// - `b`: right-hand side
-/// - `x`: initial guess on input, solution on output
+/// PCG with Block Jacobi preconditioner on a CSR matrix.
 ///
-/// Returns Ok(iterations) on convergence.
-pub fn pcg_ichol0_csr<V>(
+/// Blocks are defined by `block_starts` in local K_aa indexing.
+pub fn pcg_block_jacobi_csr<V>(
     a: &CsrMatrix<V>,
     b: &[V],
     x: &mut [V],
     max_iter: usize,
     rel_tol: V,
     abs_tol: V,
+    block_starts: &[usize],
 ) -> Result<usize, String>
 where
-    V: FloatTrait<Output = V> + Copy + PartialOrd,
+    V: FloatTrait<Output = V> + Copy,
 {
     let n = a.n_rows;
     if a.n_cols != n {
-        return Err("PCG(IC): matrix A is not square".to_string());
+        return Err("PCG(BlockJacobi): matrix A is not square".to_string());
     }
     if b.len() != n || x.len() != n {
         return Err(format!(
-            "PCG(IC): dimension mismatch: A is {}x{}, b len {}, x len {}",
+            "PCG(BlockJacobi): dimension mismatch: A is {}x{}, b len {}, x len {}",
             a.n_rows,
             a.n_cols,
             b.len(),
@@ -146,14 +143,15 @@ where
         ));
     }
 
-    // Build IC(0) preconditioner
-    let m = Ichol0Preconditioner::new_from_csr(a)
-        .map_err(|e| format!("PCG(IC): building preconditioner failed: {}", e))?;
+    let m = BlockJacobiPreconditioner::new_from_csr_with_blocks(a, block_starts)
+        .map_err(|e| format!("PCG(BlockJacobi): building preconditioner failed: {}", e))?;
 
     let zero = V::from(0.0_f32);
 
     // r = b - A x
-    let ax = a.spmv(x).map_err(|e| format!("PCG(IC): A*x failed: {}", e))?;
+    let ax = a
+        .spmv(x)
+        .map_err(|e| format!("PCG(BlockJacobi): A*x failed: {}", e))?;
     let mut r = vec![zero; n];
     for i in 0..n {
         r[i] = b[i] - ax[i];
@@ -166,55 +164,45 @@ where
     // p = z
     let mut p = z.clone();
 
-    // Scalars
     let mut rz_old = dot(&r, &z)?;
-    let b_norm2 = dot(b, b)?; // squared norm
-
+    let b_norm2 = dot(b, b)?;
     if b_norm2 == zero {
         return Ok(0);
     }
 
     let rel_tol2 = rel_tol * rel_tol;
     let abs_tol2 = abs_tol * abs_tol;
-
     let mut iterations = 0usize;
 
     for k in 0..max_iter {
         iterations = k + 1;
 
-        // Ap = A p
-        let ap = a.spmv(&p).map_err(|e| format!("PCG(IC): A*p failed: {}", e))?;
+        let ap = a
+            .spmv(&p)
+            .map_err(|e| format!("PCG(BlockJacobi): A*p failed: {}", e))?;
 
         let p_ap = dot(&p, &ap)?;
         if p_ap == zero {
-            return Err("PCG(IC): dot(p,Ap) is zero (breakdown)".to_string());
+            return Err("PCG(BlockJacobi): dot(p,Ap) is zero (breakdown)".to_string());
         }
 
         let alpha = rz_old / p_ap;
 
-        // x = x + alpha p
         axpy(x, alpha, &p)?;
-
-        // r = r - alpha Ap
         axpy(&mut r, alpha * V::from(-1f32), &ap)?;
 
-        // Check convergence with squared norms
         let r_norm2 = dot(&r, &r)?;
         if r_norm2 <= abs_tol2 || r_norm2 <= rel_tol2 * b_norm2 {
             return Ok(iterations);
         }
 
-        // z = M^{-1} r
         m.apply(&r, &mut z)?;
-
         let rz_new = dot(&r, &z)?;
         if rz_old == zero {
-            return Err("PCG(IC): rz_old is zero (breakdown)".to_string());
+            return Err("PCG(BlockJacobi): rz_old is zero (breakdown)".to_string());
         }
-
         let beta = rz_new / rz_old;
 
-        // p = z + beta p
         scale(&mut p, beta)?;
         axpy(&mut p, V::from(1.0_f32), &z)?;
 
@@ -222,7 +210,7 @@ where
     }
 
     Err(format!(
-        "PCG(IC): did not converge in {} iterations",
+        "PCG(BlockJacobi): did not converge in {} iterations",
         max_iter
     ))
 }
