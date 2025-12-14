@@ -33,14 +33,14 @@ where
         // mat[i_local, j_local] = A[offset + i_local, offset + j_local]
         for i_local in 0..size {
             let i = offset + i_local;
-            let row_start = a.row_ptr[i];
-            let row_end = a.row_ptr[i + 1];
+            let row_start = a.get_row_ptr()[i];
+            let row_end = a.get_row_ptr()[i + 1];
 
             for idx in row_start..row_end {
-                let j = a.col_index[idx];
+                let j = a.get_col_index()[idx];
                 if j >= offset && j < offset + size {
                     let j_local = j - offset;
-                    mat[i_local * size + j_local] = a.values[idx];
+                    mat[i_local * size + j_local] = a.get_values()[idx];
                 }
             }
         }
@@ -125,33 +125,33 @@ where
     ///   - sorted ascending,
     ///   - first element = 0,
     ///   - last element <= n_rows (if < n_rows, a final block [last..n_rows) is added).
-    pub fn new_from_csr_with_blocks(
+    pub fn create_from_csr_with_blocks(
         a: &CsrMatrix<V>,
         block_starts: &[usize],
     ) -> Result<Self, String> {
-        let n = a.n_rows;
-        if a.n_cols != n {
+        let n = a.get_n_rows();
+        if a.get_n_cols() != n {
             return Err(
-                "BlockJacobiPreconditioner::new_from_csr_with_blocks: matrix is not square"
+                "BlockJacobiPreconditioner::create_from_csr_with_blocks: matrix is not square"
                     .to_string(),
             );
         }
         if block_starts.is_empty() {
             return Err(
-                "BlockJacobiPreconditioner::new_from_csr_with_blocks: block_starts is empty"
+                "BlockJacobiPreconditioner::create_from_csr_with_blocks: block_starts is empty"
                     .to_string(),
             );
         }
         if block_starts[0] != 0 {
             return Err(
-                "BlockJacobiPreconditioner::new_from_csr_with_blocks: first block_start must be 0"
+                "BlockJacobiPreconditioner::create_from_csr_with_blocks: first block_start must be 0"
                     .to_string(),
             );
         }
         for w in block_starts.windows(2) {
             if w[0] > w[1] {
                 return Err(
-                    "BlockJacobiPreconditioner::new_from_csr_with_blocks: block_starts must be sorted"
+                    "BlockJacobiPreconditioner::create_from_csr_with_blocks: block_starts must be sorted"
                         .to_string(),
                 );
             }
@@ -165,7 +165,7 @@ where
             let next = block_starts[i + 1];
             if offset >= n || next > n {
                 return Err(format!(
-                    "BlockJacobiPreconditioner::new_from_csr_with_blocks: block range out of bounds: [{}, {}) with n={}",
+                    "BlockJacobiPreconditioner::create_from_csr_with_blocks: block range out of bounds: [{}, {}) with n={}",
                     offset, next, n
                 ));
             }

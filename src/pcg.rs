@@ -23,22 +23,22 @@ pub fn pcg_jacobi_csr<V>(
 where
     V: FloatTrait<Output = V> + Copy,
 {
-    let n = a.n_rows;
-    if a.n_cols != n {
+    let n = a.get_n_rows();
+    if a.get_n_cols() != n {
         return Err("PCG: matrix A is not square".to_string());
     }
     if b.len() != n || x.len() != n {
         return Err(format!(
             "PCG: dimension mismatch: A is {}x{}, b len {}, x len {}",
-            a.n_rows,
-            a.n_cols,
+            a.get_n_rows(),
+            a.get_n_cols(),
             b.len(),
             x.len()
         ));
     }
 
     // Build Jacobi preconditioner
-    let mut m = JacobiPreconditioner::new(a)?;
+    let mut m = JacobiPreconditioner::create(a)?;
 
     // r = b - A x
     let ax = a.spmv(x).map_err(|e| format!("PCG: A*x failed: {}", e))?;
@@ -129,21 +129,21 @@ pub fn pcg_block_jacobi_csr<V>(
 where
     V: FloatTrait<Output = V> + Copy,
 {
-    let n = a.n_rows;
-    if a.n_cols != n {
+    let n = a.get_n_rows();
+    if a.get_n_cols() != n {
         return Err("PCG(BlockJacobi): matrix A is not square".to_string());
     }
     if b.len() != n || x.len() != n {
         return Err(format!(
             "PCG(BlockJacobi): dimension mismatch: A is {}x{}, b len {}, x len {}",
-            a.n_rows,
-            a.n_cols,
+            a.get_n_rows(),
+            a.get_n_cols(),
             b.len(),
             x.len()
         ));
     }
 
-    let m = BlockJacobiPreconditioner::new_from_csr_with_blocks(a, block_starts)
+    let m = BlockJacobiPreconditioner::create_from_csr_with_blocks(a, block_starts)
         .map_err(|e| format!("PCG(BlockJacobi): building preconditioner failed: {}", e))?;
 
     let zero = V::from(0.0_f32);

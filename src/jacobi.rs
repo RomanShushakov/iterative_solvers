@@ -13,31 +13,31 @@ impl<V> JacobiPreconditioner<V>
 where
     V: FloatTrait<Output = V> + Copy,
 {
-    pub fn new(a: &CsrMatrix<V>) -> Result<Self, String> {
-        let n = a.n_rows;
-        if a.n_rows != a.n_cols {
-            return Err("JacobiPreconditioner::new: matrix is not square".to_string());
+    pub fn create(a: &CsrMatrix<V>) -> Result<Self, String> {
+        let n = a.get_n_rows();
+        if a.get_n_rows() != a.get_n_cols() {
+            return Err("JacobiPreconditioner::create: matrix is not square".to_string());
         }
 
         let mut diag_inv = vec![V::from(0.0_f32); n];
 
         for i in 0..n {
-            let row_start = a.row_ptr[i];
-            let row_end = a.row_ptr[i + 1];
+            let row_start = a.get_row_ptr()[i];
+            let row_end = a.get_row_ptr()[i + 1];
 
             let mut diag_val_opt: Option<V> = None;
 
             for idx in row_start..row_end {
-                let j = a.col_index[idx];
+                let j = a.get_col_index()[idx];
                 if j == i {
-                    diag_val_opt = Some(a.values[idx]);
+                    diag_val_opt = Some(a.get_values()[idx]);
                     break;
                 }
             }
 
             let diag_val = diag_val_opt.ok_or_else(|| {
                 format!(
-                    "JacobiPreconditioner::new: no diagonal entry for row {}",
+                    "JacobiPreconditioner::create: no diagonal entry for row {}",
                     i
                 )
             })?;
