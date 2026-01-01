@@ -1,3 +1,20 @@
+//! Block-Jacobi preconditioner.
+//!
+//! Block-Jacobi generalizes Jacobi by replacing single diagonal entries with
+//! small dense blocks on the diagonal:
+//!
+//! ```text
+//! A ≈ block_diag(A_0, A_1, ..., A_{B-1})
+//! M^{-1} r = solve(A_b, r_b) for each block b
+//! ```
+//!
+//! In this crate the CPU-side preconditioner is used both for pure-CPU PCG,
+//! and (in the WebGPU project) as a reference when building the GPU block data.
+//!
+//! **Important:** the current implementation is specialized to **6×6** blocks
+//! (matching the GPU kernel used in the companion repo). Smaller “tail blocks”
+//! at the end are supported by solving only the leading `m×m` portion.
+//!
 use extended_matrix::{CsrMatrix, FloatTrait};
 
 #[derive(Clone, Debug)]
@@ -54,8 +71,8 @@ where
         let zero = V::from(0.0_f32);
 
         for k in 0..n {
-            let akk = mat[k * n + k];
-            if akk == zero {
+            let a_kk = mat[k * n + k];
+            if a_kk == zero {
                 return Err(format!(
                     "BlockJacobiPreconditioner::lu_factor: zero pivot at k = {}",
                     k
@@ -64,16 +81,16 @@ where
 
             // L(i,k) for i > k
             for i in (k + 1)..n {
-                mat[i * n + k] = mat[i * n + k] / akk;
+                mat[i * n + k] = mat[i * n + k] / a_kk;
             }
 
             // Update trailing submatrix
             for i in (k + 1)..n {
-                let lik = mat[i * n + k];
-                if lik != zero {
+                let l_ik = mat[i * n + k];
+                if l_ik != zero {
                     for j in (k + 1)..n {
-                        let akj = mat[k * n + j];
-                        mat[i * n + j] = mat[i * n + j] - lik * akj;
+                        let a_kj = mat[k * n + j];
+                        mat[i * n + j] = mat[i * n + j] - l_ik * a_kj;
                     }
                 }
             }
@@ -112,8 +129,8 @@ where
             for j in (i + 1)..n {
                 sum = sum - mat[i * n + j] * x[j];
             }
-            let uii = mat[i * n + i];
-            x[i] = sum / uii;
+            let u_ii = mat[i * n + i];
+            x[i] = sum / u_ii;
         }
 
         Ok(())
@@ -125,6 +142,10 @@ where
     ///   - sorted ascending,
     ///   - first element = 0,
     ///   - last element <= n_rows (if < n_rows, a final block [last..n_rows) is added).
+    /// Build a block-Jacobi preconditioner by extracting diagonal blocks from a CSR matrix.
+    ///
+    /// `block_starts` defines block boundaries (length `num_blocks + 1`).
+    /// Each block is factorized with an in-place LU (no pivoting).
     pub fn create_from_csr_with_blocks(
         a: &CsrMatrix<V>,
         block_starts: &[usize],
@@ -205,14 +226,14 @@ where
             *zi = zero;
         }
 
-        for blk in &self.blocks {
-            let off = blk.offset;
-            let m = blk.size;
+        for block in &self.blocks {
+            let off = block.offset;
+            let m = block.size;
 
             let r_block = &r[off..off + m];
             let z_block = &mut z[off..off + m];
 
-            Self::lu_solve(&blk.lu, m, r_block, z_block)?;
+            Self::lu_solve(&block.lu, m, r_block, z_block)?;
         }
 
         Ok(())

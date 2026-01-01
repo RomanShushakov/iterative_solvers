@@ -1,3 +1,16 @@
+//! Jacobi (diagonal) preconditioner.
+//!
+//! The Jacobi preconditioner uses only the diagonal of `A`:
+//!
+//! ```text
+//! M = diag(A)
+//! z = M^{-1} r
+//! ```
+//!
+//! For SPD matrices this is often a reasonable baseline preconditioner.
+//! It is cheap to build and apply, but may converge slowly for ill-conditioned
+//! problems.
+//!
 use extended_matrix::{CsrMatrix, FloatTrait};
 
 /// Jacobi preconditioner for a CSR matrix: M = diag(A)

@@ -1,3 +1,25 @@
+//! Preconditioned Conjugate Gradient (PCG) solver.
+//!
+//! This module implements PCG for **symmetric positive definite (SPD)** systems:
+//!
+//! ```text
+//! A x = b
+//! ```
+//!
+//! The implementation is designed around CSR matrices from `extended_matrix`
+//! and works with preconditioners that provide:
+//!
+//! ```text
+//! z = M^{-1} r
+//! ```
+//!
+//! where `r = b - A x` is the residual.
+//!
+//! Notes:
+//! - The solver uses **squared norms** in the stopping criteria to avoid extra `sqrt` calls.
+//! - A few explicit “breakdown” checks are included to avoid silent NaNs.
+//! - For GPU/wasm work, this CPU implementation is a reference baseline.
+//!
 use extended_matrix::{CsrMatrix, FloatTrait};
 
 use crate::block_jacobi::BlockJacobiPreconditioner;

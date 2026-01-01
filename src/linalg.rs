@@ -1,3 +1,17 @@
+//! Lightweight linear-algebra helpers.
+//!
+//! These are tiny building blocks used by the iterative solvers.
+//! They are deliberately “low ceremony” (plain slices) so they can be reused
+//! in CPU code and in contexts where you may later swap the backend.
+//!
+//! Conventions:
+//! - Vectors are `&[f32]` / `&mut [f32]`
+//! - Length mismatches are treated as errors (returned as `Result`)
+//! - Operations are written in a BLAS-like style (`axpy`, `dot`, `scale`)
+//!
+//! **Tip:** if you later want SIMD or threaded execution, this file is the
+//! natural place to introduce it behind feature flags.
+//!
 use extended_matrix::FloatTrait;
 
 /// Dot product: <x, y>
